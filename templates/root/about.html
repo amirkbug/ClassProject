@@ -75,12 +75,12 @@
       <div class="container">
 
         <div class="row gy-4">
-          {% for report in reporters %}
+          {% for agent in agents %}
           <div class="col-lg-6" data-aos="fade-up" data-aos-delay="100">
             <div class="team-member d-flex align-items-start">
-              <div class="pic"><img src={{report.image.url}} class="img-fluid" alt=""></div>
+              <div class="pic"><img src={{agent.image.url}} class="img-fluid" alt=""></div>
               <div class="member-info">
-                <h4>{{report.user.username}}</h4>
+                <h4>{{agent.user.username}}</h4>
                 {% for ski in report.skills.all %}
                 <span>{{ski.name}}</span>
                 {% endfor %}
