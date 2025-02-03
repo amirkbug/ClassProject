@@ -1,11 +1,15 @@
 from django.shortcuts import render,redirect
-from .models import Reporter
+from .models import Reporter , Posts
 from .form import Contactusform
 from django.contrib import messages
 # Create your views here.
 
 def home(request):
-    return render(request,'root/index.html') 
+    posts = Posts.objects.filter(status = True)
+    context = {
+        'posts' : posts
+    }
+    return render(request,'root/index.html' , context=context) 
 
 def contact(request):
     if request.method == 'GET':
@@ -29,3 +33,8 @@ def about(request):
         'reporters' : reporters
     }
     return render(request,'root/about.html',context=context)
+
+
+
+def Single_post(request):
+    return render(request,'singlepost/single-post.html')

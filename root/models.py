@@ -41,3 +41,25 @@ class Contactus(models.Model):
     
     def __str__(self):
         return self.email
+    
+
+class Tags(models.Model):
+    name = models.CharField(max_length=120)
+
+
+
+    def __str__(self):
+        return self.name
+
+
+
+
+class Posts(models.Model):
+    name = models.CharField(max_length=120)
+    desc = models.TextField()
+    image = models.ImageField(upload_to='posts',default='default.jpg')
+    tag = models.ForeignKey(Tags,on_delete=models.CASCADE)
+    status = models.BooleanField(default= True)
+    
+    def __str__(self):
+        return self.name
