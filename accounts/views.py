@@ -1,158 +1,211 @@
-from django.shortcuts import render,redirect,get_object_or_404
-from .form import *
-from django.contrib.auth import authenticate,login,logout,password_validation
-from django.contrib.auth.models import User
-from django.contrib import messages
+from django.shortcuts import render, redirect
+from .forms import LoginForm, SignUpForm, ChangePassForm, ResetPassForm, ConfirmPassForm, EditProfile, Captcha
+from .models import User, Profile
 from django.contrib.auth.decorators import login_required
-from .models import Personaltoken
-from uuid import uuid4
+from django.contrib.auth import login, logout, authenticate
+from django.contrib import messages
+from django.contrib.auth import password_validation
+from rest_framework.authtoken.models import Token
 from django.core.mail import send_mail
+from django.views.generic import FormView
 
-def login_view(request):
-    if request.method == 'GET':
-        form = LoginForm()
-        context = {
-            'form':form,
-        }
-        return render(request,'accounts/login.html',context=context)
-    elif request.method == 'POST':
-        form = LoginForm(request.POST)
+
+
+from django.contrib.auth.forms import UserCreationForm
+
+# Create your views here.
+
+
+class LoginView(FormView):
+    template_name = "registration/login.html"
+    form_class = LoginForm
+    success_url = "/"
+
+    def form_valid(self, form):
+        username = form.cleaned_data['email']
+        password = form.cleaned_data['password']
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            login(self.request, user)
+            return redirect(self.success_url)
+        else:
+            messages.add_message(self.request, messages.ERROR, "Invalid credintial")
+            return redirect(self.request.path_info)
+    def form_invalid(self, form):
+        messages.add_message(self.request, messages.ERROR, "Invalid captcha or input data")
+        return redirect(self.request.path_info)
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = Captcha()
+        return context
+    
+#def login_user(request):
+#    if request.method == 'POST':
+#        form = LoginForm(request.POST)
+#        if form.is_valid():
+#            username = form.cleaned_data['email']
+#            password = form.cleaned_data['password']
+#            user = authenticate(username=username, password=password)
+#            if user is not None:
+#                login(request, user)
+#                print (user.get_user_permissions())
+#                return redirect("root:home")
+#            else:
+#                messages.add_message(request, messages.ERROR, "Invalid credintial")
+#                return redirect(request.path_info)
+#        else:
+#                messages.add_message(request, messages.ERROR, "Invalid captcha")
+#                return redirect(request.path_info)#
+
+#            #username = request.POST.get('username').strip()
+#    else:
+#        context = {
+#            "form" : Captcha()
+#        }
+#        return render(request, "registration/login.html", context=context)
+
+
+@login_required
+def logout_user(request):
+    logout(request)
+    return redirect("root:home")
+
+def signup_user(request):
+     if request.method == 'POST':
+         form = SignUpForm(request.POST)
+         if form.is_valid():
+             user = form.save()
+             login(request, user)
+             return redirect("root:home")
+         else:
+                messages.add_message(request, messages.ERROR, "Invalid input data")
+                return redirect(request.path_info)
+     else:
+        return render(request, "registration/signup.html")
+
+@login_required
+def change_password(request):
+    user = request.user
+    if request.method == 'POST':
+        form = ChangePassForm(request.POST)
         if form.is_valid():
-            username = form.cleaned_data['username_or_email']
-            if '@' in username:
-                user = get_object_or_404(User,email = username)
-                name = user.username
-                password = form.cleaned_data['password']
-                user = authenticate(username =name,password=password)
-                if user is not None:
-                    login(request,user)
-                    return redirect('/')
+            pass1 = form.cleaned_data['password1']
+            pass2 = form.cleaned_data['password2']
+            if (pass1 == pass2) and not (user.check_password(pass1)) :
+                try:
+                    password_validation.validate_password(pass1)
+                except:
+                    messages.add_message(request, messages.ERROR, "Invalid password validation")
+                    return redirect(request.path_info)
                 else:
-                    messages.add_message(request,messages.ERROR,'please enter your data in correct way')
+                    user.set_password(pass1)
+                    user.save()
+                    login(request, user)
+                    messages.add_message(request, messages.SUCCESS, "password change successfully")
                     return redirect(request.path_info)
             else:
-                username = form.cleaned_data['username_or_email']
-                password = form.cleaned_data['password']
-                user = authenticate(username = username,password=password)
-                if user is not None:
-                    login(request,user)
-                    return redirect('/')
-                else:
-                    messages.add_message(request,messages.ERROR,'please enter your data in correct way')
-                    return redirect(request.path_info)
+                messages.add_message(request, messages.ERROR, "password and pass2 must be similar or different between old and new")
+                return redirect(request.path_info)
         else:
-            messages.add_message(request, messages.ERROR, "Login failed please check you input data and try again ")
+            messages.add_message(request, messages.ERROR, "invalid input data")
             return redirect(request.path_info)
-@login_required()
-def logout_view(request):
-    logout(request)
-    return redirect('/')
 
-def signup(request): 
-    if request.method == 'GET':
-        form = SignupForm()
-        context = {
-            'form':form,
-        }
-        return render(request,'accounts/signup.html',context=context)
-    elif request.method == 'POST':
-        form = SignupForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request,user)
-            return redirect('/')
-        else:
-            messages.add_message(request,messages.ERROR,'havnet save please try again ')
-            return redirect(request.path_info)
-@login_required       
-def change_password(request):
-    if request.method == 'GET':
-        form = Change_passwordForm()
-        context = {
-            'form':form,
-        }
-        return render(request,'accounts/change_password.html',context=context)
-    elif request.method == 'POST':
-        user = request.user
-        current_password = request.POST.get('current_password')
-        if not user.check_password(current_password):
-            messages.add_message(request,messages.ERROR,'your current password isnt match')
-            return redirect(request.path_info)
-        password = request.POST.get('password')
-        confirm_password = request.POST.get('confirm_password')
-        if password != confirm_password:
-            messages.add_message(request,messages.ERROR,'the new passwords have to be the same as each other')
-            return redirect(request.path_info)
-        try:
-            password_validation.validate_password(password)
-            user.set_password(password)
-            user.save()
-            login(request,user)
-            messages.add_message(request,messages.SUCCESS,'your password have been changed')
-            return redirect('/')
-        except:
-            messages.add_message(request,messages.ERROR,'password validation is failed')
-            return redirect(request.path_info)
-        
-        
-        
-        
+    else:
+        return render (request, "registration/change-password.html")
+import time
+from threading import Thread
+
+def send_email(title:str, caption:str, sender:str, receiver:list, fail_silently=True):
+    time.sleep(10)
+    send_mail(title, caption, sender, receiver, fail_silently)
+
 def reset_password(request):
-    if request.method == 'GET':
-        form = ResetpasswordForm()
-        context = {
-            'form':form,
-        }
-        return render(request,'accounts/reset_password.html',context=context)
-    else:
-        form = ResetpasswordForm(request.POST)
+    if request.method == "POST":
+        form = ResetPassForm(request.POST)
         if form.is_valid():
-            user = get_object_or_404(User,email=form.cleaned_data['email'])
+            email = form.cleaned_data['email']
             try:
-                token = Personaltoken.objects.get(user=user)
-            except:
-                token = Personaltoken.objects.create(user=user,token=str(uuid4()))
-            send_mail(
-                'reset password',
-                f'http://127.0.0.1:8000/accounts/reset_password_confirm/{token.token}',
-                'admin',
-                [user.email],
-                fail_silently=True
-            )
-            return redirect('accounts:reset_password_done')
+                user = User.objects.get(email=email)
+            except :
+                messages.add_message(request, messages.ERROR, "user not found")
+                return redirect(request.path_info)
+            else:
+                token, create = Token.objects.get_or_create(user=user)
+                if not create:
+                    Token.objects.get(user=user).delete()
+                    token = Token.objects.create(user=user)
+                tr = Thread(target=send_email,args=(
+                    "Reset your password",
+                    f"""
+                    please click on link for  reset password\n
+                    http://127.0.0.1:8000/accounts/reset-password-confirm/{token.key}""",
+                    "admin@mysite.com",
+                    [user.email],
+                                                    ))
+                tr.start()
+                # send_email("Reset your password",
+                #     f"""
+                #     please click on link for  reset password\n
+                #     http://127.0.0.1:8000/accounts/reset-password-confirm/{token.key}""",
+                #     "admin@mysite.com",
+                #     [user.email],
+                #     fail_silently=True,)
+                return redirect("accounts:reset_password_done")
         else:
-            messages.add_message(request,messages.ERROR,'please enter the correct email')
-            return redirect(request.path_info)
-            
-            
-def reset_password_done(request):
-    return render(request,'accounts/reset_password_done.html')
-
-def reset_password_confirm(request,token):
-    if request.method == 'GET':
-        form = ResetpaswordconfirmForm()
-        context = {
-            'form':form,
-        }
-        return render(request,'accounts/reset_password_confirm.html',context=context)
+            messages.add_message(request, messages.ERROR, "invalid input data")
+            return redirect(request.path_info)          
     else:
-        user = Personaltoken.objects.get(token=token).user
-        pass1 = request.POST.get('pass1')
-        pass2 = request.POST.get('pass2')
-        if pass1 != pass2:
-            messages.add_message(request,messages.ERROR,'they have to be thes same as eachother')
+        return render (request, "registration/reset-password.html")
+
+def reset_password_done(request):
+    return render (request, "registration/reset-password-done.html")
+
+def reset_password_confirm(request, token):
+    if request.method == "POST":
+        form = ConfirmPassForm(request.POST)
+        user = Token.objects.get(key=token).user
+        if form.is_valid():
+            pass1 = form.cleaned_data['pass1']
+            pass2 = form.cleaned_data['pass2']
+            if (pass1 == pass2) and not (user.check_password(pass1)) :
+                try:
+                    password_validation.validate_password(pass1)
+                except:
+                    messages.add_message(request, messages.ERROR, "Invalid password validation")
+                    return redirect(request.path_info)
+                else:
+                    user.set_password(pass1)
+                    user.save()
+                    return redirect("accounts:reset_password_complete")
+            else:
+                messages.add_message(request, messages.ERROR, "password and pass2 must be similar or different between old and new")
+                return redirect(request.path_info)
+        else:
+            messages.add_message(request, messages.ERROR, "invalid input data")
             return redirect(request.path_info)
-        try:
-            password_validation.validate_password(pass1)
-            user.set_password(pass1)
-            user.save()
-            return redirect('accounts:reset_password_complete')
-        except:
-            messages.add_message(request,messages.ERROR,'password validation is failed')
-            return redirect(request.path_info)
-        
+    else:
+        return render (request, "registration/reset-password-confirm.html")
 
 def reset_password_complete(request):
-    return render(request,'accounts/reset_password_complete.html')
-    
+    return render (request, "registration/reset-password-complete.html")
+
+@login_required
+def edit_profile(request, id):
+    user_profile = Profile.objects.get(user=id)
+    if request.method == "POST":
+        form = EditProfile(request.POST, request.FILES, instance=user_profile)
+        if form.is_valid():
+            form.save()
+            messages.add_message(request, messages.SUCCESS, "Profile updated successfully")
+            return redirect(request.path_info)
+        else:
+            messages.add_message(request, messages.ERROR, "Invalid input data")
+            return redirect(request.path_info)
+    else:
         
+        form = EditProfile(instance=user_profile)
+        context = {
+            "form": form,
+        }
+        return render (request, "registration/edit-profile.html", context=context)
