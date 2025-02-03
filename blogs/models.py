@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from accounts.models import Profile
 from django.utils import timezone
 from root.models import Reporter
 
@@ -47,7 +47,7 @@ class Blogs(models.Model):
       
 class Comment(models.Model):
     blogs = models.ForeignKey(Blogs,on_delete=models.CASCADE)
-    name = models.ForeignKey(User,on_delete=models.CASCADE)
+    name = models.ForeignKey(Profile,on_delete=models.CASCADE)
     message = models.TextField()
     status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -57,7 +57,7 @@ class Comment(models.Model):
     
 class Reply(models.Model):
     comment = models.ForeignKey(Comment,on_delete=models.CASCADE)
-    name = models.ForeignKey(User,on_delete=models.CASCADE)
+    name = models.ForeignKey(Profile,on_delete=models.CASCADE)
     message = models.TextField()
     status = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

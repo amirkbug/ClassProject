@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from accounts.models import Profile
 
     
 
@@ -15,7 +15,7 @@ class Skills(models.Model):
         ordering = ('created_at',)
 
 class Reporter(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(Profile, on_delete=models.CASCADE)
     image = models.ImageField(upload_to='reporter',default= 'unknown.jpg')
     skills = models.ManyToManyField(Skills)
     content = models.TextField(default='good reporter')
